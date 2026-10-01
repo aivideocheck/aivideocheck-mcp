@@ -100,16 +100,20 @@ class ToolFailure(ToolError):
 
 def _api_key(ctx: Optional[Context]) -> str:
     headers = (ctx.headers if ctx is not None else None) or {}
-    auth = headers.get("authorization") or headers.get("Authorization") or ""
+    auth = (headers.get("authorization") or headers.get("Authorization") or "").strip()
     if auth.lower().startswith("bearer "):
         return auth[7:].strip()
+    # Catalogs such as Smithery forward the user's value into the header as is,
+    # so people paste the bare key there. Only our own key shape is taken bare.
+    if auth.startswith("avc_"):
+        return auth
     if _MODE["stdio"]:
         key = os.getenv("AVC_API_KEY", "").strip()
         if key:
             return key
     raise ToolFailure(
         "No AI Video Check API key. Create one on your account page "
-        f"({SITE}/en/dashboard/account) and configure this server with it: "
+        f"({SITE}/en/dashboard/api) and configure this server with it: "
         "the `Authorization: Bearer avc_live_…` header for the remote server, "
         "or the AVC_API_KEY environment variable for the local one."
     )
@@ -122,7 +126,7 @@ def _error_text(r: httpx.Response) -> str:
         err = {}
     code, message = err.get("code", ""), err.get("message") or f"HTTP {r.status_code}"
     if code == "invalid_api_key":
-        return f"The API key was rejected ({message}). Check it on {SITE}/en/dashboard/account."
+        return f"The API key was rejected ({message}). Check it on {SITE}/en/dashboard/api."
     if code == "insufficient_credits":
         need, have = err.get("required"), err.get("balance")
         tail = f" This video needs {need} credit(s); the balance is {have}." if need is not None else ""

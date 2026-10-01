@@ -140,10 +140,10 @@ def text(res):
     return "\n".join(getattr(c, "text", "") for c in res.content)
 
 
-def http_client(key=None, host=None, ip=None):
+def http_client(key=None, host=None, ip=None, bare=False):
     headers = {"X-Real-IP": ip} if ip else {}
     if key:
-        headers["Authorization"] = f"Bearer {key}"
+        headers["Authorization"] = key if bare else f"Bearer {key}"
     if host:
         headers["Host"] = host
     return Client(streamable_http_client(URL, http_client=httpx2.AsyncClient(headers=headers, timeout=60)))
@@ -180,10 +180,21 @@ async def remote():
         check("чужой или несуществующий id → ошибка от /v1 без трассировки",
               res.is_error and "No check with this id" in text(res) and "Traceback" not in text(res), text(res))
 
+    async with http_client(GOOD, bare=True) as c:
+        res = await c.call_tool("get_balance", {})
+        check("ключ без «Bearer » (так его передаёт Smithery) тоже принят",
+              not res.is_error and "Balance: 17" in text(res), text(res))
+
+    async with http_client("sk-something-else", bare=True) as c:
+        res = await c.call_tool("get_balance", {})
+        check("чужая строка без «Bearer » ключом не считается",
+              res.is_error and "No AI Video Check API key" in text(res), text(res))
+
     async with http_client(None) as c:
         res = await c.call_tool("get_balance", {})
         t = text(res)
         check("без ключа → подсказка, где его взять", res.is_error and "No AI Video Check API key" in t, t)
+        check("подсказка ведёт на страницу API, а не на старую", "/dashboard/api" in t, t)
     check("ключ из окружения сервера в HTTP-режиме не использован ни разу",
           seen["keys"] == {GOOD} and len(seen["posts"]) == 2, str(seen))
 
