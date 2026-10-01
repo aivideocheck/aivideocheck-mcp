@@ -1,0 +1,6 @@
+# Pinned: the MCP SDK changes fast (2.x renamed FastMCP to MCPServer and moved
+# its imports). Upgrade on purpose, then run tests/test_mcp.py.
+mcp==2.2.0
+mcp-types==2.2.0
+httpx==0.28.1
+uvicorn==0.54.0
